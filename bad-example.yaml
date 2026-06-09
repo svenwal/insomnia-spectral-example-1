@@ -73,7 +73,7 @@ spec:
                     $ref: "#/components/schemas/Todo"
             "400":
               description: Bad format
-      /todos/{id}:
+      /todos/{id}/:
         parameters:
           - in: path
             name: id
@@ -167,4 +167,4 @@ spec:
   meta:
     id: spc_3ef45b30f13b47e5ba06878074573eb9
     created: 1780997743345
-    modified: 1780997767435
+    modified: 1780997910176
