@@ -1,23 +1,23 @@
 type: spec.insomnia.rest/5.0
 schema_version: "5.1"
-name: Good example
+name: Bad example
 meta:
-  id: wrk_2c252fff4e054e009454e66ed13d45cf
-  created: 1780996220969
-  modified: 1780996220969
+  id: wrk_b543ce365e6a466e8c9ee0bcfb760190
+  created: 1780997743343
+  modified: 1780997743343
   description: ""
 cookieJar:
   name: Default Jar
   meta:
-    id: jar_d73b3343b7d6e7222d0421a82dacde93331a65df
-    created: 1780996220973
-    modified: 1780996220973
+    id: jar_6034f9ae10022950953c89776c1cb35bf8abdb11
+    created: 1780997743346
+    modified: 1780997743346
 environments:
   name: Base Environment
   meta:
-    id: env_d73b3343b7d6e7222d0421a82dacde93331a65df
-    created: 1780996220972
-    modified: 1780996220972
+    id: env_6034f9ae10022950953c89776c1cb35bf8abdb11
+    created: 1780997743345
+    modified: 1780997743345
     isPrivate: false
 spec:
   contents:
@@ -30,7 +30,7 @@ spec:
         name: API Support
         email: support@example.com
     servers:
-      - url: https://api.example.com/api
+      - url: https://api.example.com
     tags:
       - name: Todos
     paths:
@@ -130,8 +130,6 @@ spec:
           responses:
             "204":
               description: TODO item deleted
-            "400":
-              description: Bad format
             "404":
               description: TODO item not found
     components:
@@ -167,6 +165,6 @@ spec:
             - title
             - completed
   meta:
-    id: spc_20343fd50a8740afa8d8cd456ef3c7af
-    created: 1780996225983
-    modified: 1780997655462
+    id: spc_3ef45b30f13b47e5ba06878074573eb9
+    created: 1780997743345
+    modified: 1780997767435
