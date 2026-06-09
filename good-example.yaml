@@ -33,7 +33,6 @@ spec:
       - url: https://api.example.com
     tags:
       - name: Todos
-        description: Operations related to TODO items
     paths:
       /todos:
         get:
@@ -160,4 +159,4 @@ spec:
   meta:
     id: spc_20343fd50a8740afa8d8cd456ef3c7af
     created: 1780996225983
-    modified: 1780996448637
+    modified: 1780996683871

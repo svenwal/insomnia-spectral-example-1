@@ -1,9 +1,229 @@
-extends: spectral:oas
+# Bynder REST API Standards - Spectral Ruleset
+# Derived from RESTAPIStandards.md
+#
+# Usage:
+#   spectral lint openapi.yaml --ruleset bynder-api-standards.spectral.yaml
+#
+# Many of the standards are machine-checkable against an OpenAPI document.
+# Rules that depend on human judgement (e.g. "use nouns not verbs",
+# "logical grouping of domains") are flagged as `warn` or `hint` where a
+# heuristic is possible, and listed in the accompanying README as
+# non-enforceable where no reliable heuristic exists.
+
+extends:
+  - "spectral:oas"
+
+aliases:
+  PathItem:
+    - "$.paths[*]"
+  Operation:
+    - "$.paths[*][get,put,post,delete,patch,head,options,trace]"
+
+functionsDir: "./functions"
+functions:
+  - pathSegmentCase
+  - cursorPaginationParams
+
 rules:
-  tag-description:
-    description: Tags must have a description.
-    given: $.tags[*]
-    severity: warn
+
+  # ----------------------------------------------------------------------
+  # Base URL & Versioning
+  # ----------------------------------------------------------------------
+
+  # Base URL must use HTTPS and include the /api path prefix.
+  bynder-server-https-api-prefix:
+    description: "Servers must use HTTPS and include the /api path prefix (e.g. https://vendor.bynder.com/api)."
+    message: "{{error}}"
+    severity: error
+    given: "$.servers[*].url"
     then:
-      field: description
+      function: pattern
+      functionOptions:
+        match: "^https://[^/]+/api(/|$)"
+
+  # Major version must follow the /api/{n} segment as an integer.
+  bynder-major-version-in-path:
+    description: "Paths must carry the MAJOR version as an integer segment immediately after /api (e.g. /api/1/...). Only the MAJOR version belongs in the URL."
+    message: "Path '{{path}}' must include an integer major version after /api, e.g. /api/1/{resource}."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        # Either a full path including /api/{major}/... or a relative path whose
+        # version is supplied via the server URL. We require the {major} segment
+        # to be a bare integer wherever a version-looking segment appears.
+        match: "^/(api/[0-9]+/|[0-9]+/|(?!api/)(?![0-9]+\\.[0-9]+))"
+
+  # Disallow MINOR.PATCH style versions (e.g. /api/1.5/...) in the path.
+  bynder-no-semver-in-path:
+    description: "Only the MAJOR version may appear in the URL; MINOR/PATCH (e.g. 1.5.27) must not appear in paths."
+    message: "Path '{{path}}' must not contain a dotted semantic version segment; only the integer MAJOR version belongs in the URL."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "/[0-9]+\\.[0-9]+(\\.[0-9]+)?(/|$)"
+
+  # ----------------------------------------------------------------------
+  # Resource naming conventions
+  # ----------------------------------------------------------------------
+
+  # Lowercase letters and hyphens only; no uppercase, no underscores.
+  bynder-path-lowercase-hyphens:
+    description: "Path segments must use lowercase letters and hyphens only. No uppercase, no underscores. Path/template parameters are exempt from this check."
+    message: "{{error}}"
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pathSegmentCase
+
+  # No trailing slash.
+  bynder-no-trailing-slash:
+    description: "Paths must not end with a trailing slash; it adds no semantic value."
+    message: "Path '{{path}}' must not end with a trailing slash."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: ".+/$"
+
+  # No file extensions in the path.
+  bynder-no-file-extension:
+    description: "Paths must not contain file extensions (e.g. .json, .xml). Use content negotiation instead."
+    message: "Path '{{path}}' must not contain a file extension; rely on Content-Type negotiation."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        notMatch: "\\.(json|xml|yaml|yml|html|csv|txt)(/|$)"
+
+  # Reserved / blocked words: metrics, swagger.
+  bynder-no-reserved-segments:
+    description: "Paths must not use infrastructure-reserved segments such as 'metrics' or 'swagger' as standalone path segments (blocked by the gateway)."
+    message: "Path '{{path}}' uses a reserved segment ('metrics' or 'swagger') which is blocked by the gateway."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        # Matches /metrics, /swagger.json, /swagger.yaml as full segments
+        notMatch: "/(metrics)(/|$)|/swagger\\.(json|yaml|yml)(/|$)"
+
+  # Collections should be plural nouns; flag obvious verb-like segments.
+  bynder-no-verbs-in-resource-paths:
+    description: "RESTful resource paths should refer to nouns, not verbs. Verb-like segments usually indicate an RPC endpoint that, if intended, must follow the custom-method conventions."
+    message: "Path '{{path}}' appears to contain a verb segment. Resource paths should use nouns; intentional actions must follow the custom-method pattern."
+    severity: warn
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        # Heuristic: common CRUD-ish verbs as leading-word of a non-parameter segment.
+        notMatch: "/(get|create|update|delete|fetch|list|retrieve|remove|add|set|make)(-[a-z0-9-]+)?(/|$)"
+
+  # ----------------------------------------------------------------------
+  # Custom (RPC-style) methods
+  # ----------------------------------------------------------------------
+
+  # Custom methods (action segments) must use POST.
+  bynder-custom-method-uses-post:
+    description: "Custom (RPC-style) methods must use POST unless they are truly read-only. The trailing action segment indicates a custom method."
+    message: "Custom-method path '{{path}}' should be exposed via POST (custom methods default to POST for mutations/side effects)."
+    severity: warn
+    given: "$.paths[?(@property.match(/\\/(archive|publish|duplicate|cancel|retry|approve|reject|import|export|transcode|transcribe|batch-[a-z-]+|analyze-[a-z-]+|generate-[a-z-]+|move-[a-z-]+)$/))]"
+    then:
+      field: "get"
+      function: undefined
+
+  # Custom method action segments must be spinal-case (lowercase + hyphens).
+  # This is already covered by bynder-path-lowercase-hyphens, which enforces
+  # spinal-case on every non-parameter segment.
+
+  # ----------------------------------------------------------------------
+  # HTTP methods & status codes
+  # ----------------------------------------------------------------------
+
+  # POST (create) should be able to return 201.
+  bynder-post-has-201:
+    description: "POST operations that create a resource should document a 201 Created response."
+    message: "POST {{path}} should document a 201 Created response."
+    severity: hint
+    given: "$.paths[*].post.responses"
+    then:
+      field: "201"
       function: truthy
+
+  # DELETE should document 204.
+  bynder-delete-has-204:
+    description: "DELETE operations should document a 204 No Content response."
+    message: "DELETE {{path}} should document a 204 No Content response."
+    severity: hint
+    given: "$.paths[*].delete.responses"
+    then:
+      field: "204"
+      function: truthy
+
+  # Operations should document a 400 for invalid requests.
+  bynder-documents-400:
+    description: "Operations should document a 400 Bad Request response for invalid input."
+    message: "{{path}} ({{property}}) should document a 400 Bad Request response."
+    severity: hint
+    given: "$.paths[*][get,put,post,delete,patch].responses"
+    then:
+      field: "400"
+      function: truthy
+
+  # Status codes used must be within the documented common set is not enforced,
+  # because APIs legitimately use codes beyond the example list.
+
+  # ----------------------------------------------------------------------
+  # Pagination
+  # ----------------------------------------------------------------------
+
+  # Collection GETs must offer cursor-based pagination via start & limit.
+  bynder-collection-pagination-params:
+    description: "Collection GET endpoints must implement cursor-based pagination, exposing optional 'start' and 'limit' query parameters."
+    message: "{{error}}"
+    severity: warn
+    given: "$.paths[?(!@property.match(/\\}$/))].get"
+    then:
+      function: cursorPaginationParams
+
+  # The 'limit' parameter should have a documented default and maximum.
+  bynder-limit-has-default-and-max:
+    description: "The 'limit' query parameter should define a default and a maximum value."
+    message: "The 'limit' parameter on {{path}} should define both a schema.default and schema.maximum."
+    severity: hint
+    given: "$.paths[*].get.parameters[?(@.name == 'limit' && @.in == 'query')].schema"
+    then:
+      - field: "default"
+        function: truthy
+      - field: "maximum"
+        function: truthy
+
+  # ----------------------------------------------------------------------
+  # Sorting
+  # ----------------------------------------------------------------------
+
+  # If a 'sort' param exists, it must be a string (comma-separated list).
+  bynder-sort-param-is-string:
+    description: "The 'sort' query parameter must be a string accepting a comma-separated list of attributes (descending prefixed with '-')."
+    message: "The 'sort' parameter on {{path}} should be typed as a string."
+    severity: hint
+    given: "$.paths[*].get.parameters[?(@.name == 'sort' && @.in == 'query')].schema"
+    then:
+      field: "type"
+      function: pattern
+      functionOptions:
+        match: "^string$"
