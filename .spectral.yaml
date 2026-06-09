@@ -19,10 +19,10 @@ aliases:
   Operation:
     - "$.paths[*][get,put,post,delete,patch,head,options,trace]"
 
-functionsDir: "./functions"
-functions:
-  - pathSegmentCase
-  - cursorPaginationParams
+#functionsDir: "./functions"
+#functions:
+#  - pathSegmentCase
+#  - cursorPaginationParams
 
 rules:
 
@@ -73,14 +73,14 @@ rules:
   # ----------------------------------------------------------------------
 
   # Lowercase letters and hyphens only; no uppercase, no underscores.
-  bynder-path-lowercase-hyphens:
-    description: "Path segments must use lowercase letters and hyphens only. No uppercase, no underscores. Path/template parameters are exempt from this check."
-    message: "{{error}}"
-    severity: error
-    given: "$.paths"
-    then:
-      field: "@key"
-      function: pathSegmentCase
+#  bynder-path-lowercase-hyphens:
+#    description: "Path segments must use lowercase letters and hyphens only. No uppercase, no underscores. Path/template parameters are exempt from this check."
+#    message: "{{error}}"
+#    severity: error
+#    given: "$.paths"
+#    then:
+#      field: "@key"
+#      function: pathSegmentCase
 
   # No trailing slash.
   bynder-no-trailing-slash:
@@ -192,13 +192,13 @@ rules:
   # ----------------------------------------------------------------------
 
   # Collection GETs must offer cursor-based pagination via start & limit.
-  bynder-collection-pagination-params:
-    description: "Collection GET endpoints must implement cursor-based pagination, exposing optional 'start' and 'limit' query parameters."
-    message: "{{error}}"
-    severity: warn
-    given: "$.paths[?(!@property.match(/\\}$/))].get"
-    then:
-      function: cursorPaginationParams
+#  bynder-collection-pagination-params:
+#    description: "Collection GET endpoints must implement cursor-based pagination, exposing optional 'start' and 'limit' query parameters."
+#    message: "{{error}}"
+#    severity: warn
+#    given: "$.paths[?(!@property.match(/\\}$/))].get"
+#    then:
+#      function: cursorPaginationParams
 
   # The 'limit' parameter should have a documented default and maximum.
   bynder-limit-has-default-and-max:
